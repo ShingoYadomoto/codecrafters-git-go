@@ -18,39 +18,50 @@ func main() {
 		os.Exit(1)
 	}
 
-	switch command := os.Args[1]; command {
+	var (
+		command     = os.Args[1]
+		commandFunc func() error
+	)
+	switch command {
 	case "init":
-		execInit()
+		commandFunc = execInit
 	case "cat-file":
-		execCatFile()
+		commandFunc = execCatFile
 	case "hash-object":
-		execHashObject()
+		commandFunc = execHashObject
 	default:
 		fmt.Fprintf(os.Stderr, "Unknown command %s\n", command)
 		os.Exit(1)
 	}
+
+	err := commandFunc()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "failed to exec %s\n", command)
+		os.Exit(1)
+	}
 }
 
-func execInit() {
+func execInit() error {
 	for _, dir := range []string{".git", ".git/objects", ".git/refs"} {
 		if err := os.MkdirAll(dir, 0755); err != nil {
-			fmt.Fprintf(os.Stderr, "Error creating directory: %s\n", err)
+			return err
 		}
 	}
 
 	headFileContents := []byte("ref: refs/heads/master\n")
 	if err := os.WriteFile(".git/HEAD", headFileContents, 0644); err != nil {
-		fmt.Fprintf(os.Stderr, "Error writing file: %s\n", err)
+		return err
 	}
 
 	fmt.Println("Initialized git directory")
+
+	return nil
 }
 
-func execCatFile() {
+func execCatFile() error {
 	option := os.Args[2]
 	if option != "-p" {
-		fmt.Fprintf(os.Stderr, "Unknown option %s\n", option)
-		os.Exit(1)
+		return fmt.Errorf("Unknown option %s\n", option)
 	}
 
 	var (
@@ -61,30 +72,31 @@ func execCatFile() {
 	)
 	f, err := os.Open(path)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, err.Error())
+		return err
 	}
 	defer f.Close()
 
 	rc, err := zlib.NewReader(f)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, err.Error())
+		return err
 	}
 	defer rc.Close()
 
 	content, err := io.ReadAll(rc)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, err.Error())
+		return err
 	}
 
 	splitContent := strings.Split(string(content), "\x00")
 	fmt.Print(splitContent[1])
+
+	return nil
 }
 
-func execHashObject() {
+func execHashObject() error {
 	option := os.Args[2]
 	if option != "-w" {
-		fmt.Fprintf(os.Stderr, "Unknown option %s\n", option)
-		os.Exit(1)
+		return fmt.Errorf("Unknown option %s\n", option)
 	}
 
 	contentBytes, err := func() ([]byte, error) {
@@ -110,8 +122,7 @@ func execHashObject() {
 		return fullContent, nil
 	}()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, err.Error())
-		return
+		return err
 	}
 
 	compressedContentBytes, err := func() ([]byte, error) {
@@ -131,8 +142,7 @@ func execHashObject() {
 		return b.Bytes(), nil
 	}()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, err.Error())
-		return
+		return err
 	}
 
 	blobSHA, err := func() (string, error) {
@@ -148,8 +158,7 @@ func execHashObject() {
 		return fmt.Sprintf("%x", blobSHABytes), nil
 	}()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, err.Error())
-		return
+		return err
 	}
 
 	err = func() error {
@@ -171,9 +180,10 @@ func execHashObject() {
 		return nil
 	}()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, err.Error())
-		return
+		return err
 	}
 
 	fmt.Print(blobSHA)
+
+	return nil
 }
