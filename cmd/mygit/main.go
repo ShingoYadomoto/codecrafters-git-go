@@ -1,17 +1,16 @@
 package main
 
 import (
+	"compress/zlib"
 	"fmt"
+	"io"
 	"os"
+	"path/filepath"
+	"strings"
 )
 
 // Usage: your_git.sh <command> <arg1> <arg2> ...
 func main() {
-	// You can use print statements as follows for debugging, they'll be visible when running tests.
-	fmt.Println("Logs from your program will appear here!")
-
-	// Uncomment this block to pass the first stage!
-
 	if len(os.Args) < 2 {
 		fmt.Fprintf(os.Stderr, "usage: mygit <command> [<args>...]\n")
 		os.Exit(1)
@@ -31,7 +30,38 @@ func main() {
 		}
 
 		fmt.Println("Initialized git directory")
+	case "cat-file":
+		option := os.Args[2]
+		if option == "-p" {
+			var (
+				blobSHA = os.Args[3]
+				dir     = blobSHA[:2]
+				file    = blobSHA[2:]
+				path    = filepath.Join(".git", "objects", dir, file)
+			)
+			f, err := os.Open(path)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, err.Error())
+			}
+			defer f.Close()
 
+			rc, err := zlib.NewReader(f)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, err.Error())
+			}
+			defer rc.Close()
+
+			content, err := io.ReadAll(rc)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, err.Error())
+			}
+
+			splitContent := strings.Split(string(content), "\x00")
+			fmt.Print(splitContent[1])
+		} else {
+			fmt.Fprintf(os.Stderr, "Unknown option %s\n", option)
+			os.Exit(1)
+		}
 	default:
 		fmt.Fprintf(os.Stderr, "Unknown command %s\n", command)
 		os.Exit(1)
