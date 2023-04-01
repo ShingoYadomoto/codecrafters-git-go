@@ -29,6 +29,8 @@ func main() {
 		commandFunc = execCatFile
 	case "hash-object":
 		commandFunc = execHashObject
+	case "ls-tree":
+		commandFunc = execLsTree
 	default:
 		fmt.Fprintf(os.Stderr, "Unknown command %s\n", command)
 		os.Exit(1)
@@ -184,6 +186,67 @@ func execHashObject() error {
 	}
 
 	fmt.Print(blobSHA)
+
+	return nil
+}
+
+func execLsTree() error {
+	option := os.Args[2]
+	if option != "--name-only" {
+		return fmt.Errorf("Unknown option %s\n", option)
+	}
+
+	var (
+		treeSHA = os.Args[3]
+		dir     = treeSHA[:2]
+		file    = treeSHA[2:]
+		path    = filepath.Join(".git", "objects", dir, file)
+	)
+	f, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	rc, err := zlib.NewReader(f)
+	if err != nil {
+		return err
+	}
+	defer rc.Close()
+
+	var contents bytes.Buffer
+	_, err = io.Copy(&contents, rc)
+	if err != nil {
+		return err
+	}
+
+	_, err = contents.ReadBytes('\x00')
+	if err != nil {
+		return err
+	}
+
+	for {
+		_, err := contents.ReadBytes(' ')
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			return err
+		}
+
+		name, err := contents.ReadBytes('\x00')
+		if err != nil {
+			return err
+		}
+		fmt.Print(string(name[:len(name)-1]))
+
+		sha := make([]byte, 20)
+		_, err = contents.Read(sha)
+		if err != nil {
+			return err
+		}
+		fmt.Println()
+	}
 
 	return nil
 }
