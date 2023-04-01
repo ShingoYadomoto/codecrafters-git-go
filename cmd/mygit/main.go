@@ -86,7 +86,7 @@ func main() {
 				}
 
 				var (
-					header      = append([]byte("blob\x00"+fmt.Sprint(len(content))), []byte{0}...)
+					header      = append([]byte("blob "+fmt.Sprint(len(content))), []byte{0}...)
 					fullContent = append(header, content...)
 				)
 
@@ -137,17 +137,13 @@ func main() {
 					dir  = filepath.Join(".git", "objects", blobSHA[:2])
 					file = filepath.Join(dir, blobSHA[2:])
 				)
-				if err := os.MkdirAll(dir, 0755); err != nil {
-					return err
-				}
 
-				f, err := os.Create(file)
+				err := os.MkdirAll(dir, 0755)
 				if err != nil {
 					return err
 				}
-				defer f.Close()
 
-				_, err = f.Write(compressedContentBytes)
+				err = os.WriteFile(file, compressedContentBytes, 0644)
 				if err != nil {
 					return err
 				}
