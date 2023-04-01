@@ -101,9 +101,12 @@ func main() {
 				var b bytes.Buffer
 
 				w := zlib.NewWriter(&b)
-				defer w.Close()
 
 				_, err = w.Write(contentBytes)
+				if err != nil {
+					return nil, err
+				}
+				err = w.Close()
 				if err != nil {
 					return nil, err
 				}
