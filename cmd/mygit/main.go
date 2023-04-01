@@ -125,7 +125,7 @@ func main() {
 
 				blobSHABytes := h.Sum(nil)
 
-				return fmt.Sprintf("%x\n", blobSHABytes), nil
+				return fmt.Sprintf("%x", blobSHABytes), nil
 			}()
 			if err != nil {
 				fmt.Fprintf(os.Stderr, err.Error())
